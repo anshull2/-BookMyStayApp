@@ -1,33 +1,146 @@
 /**
- * UseCase1HotelBookingApp
+ * UseCase10BookingCancellation
  *
- * This class represents the entry point of the Hotel Booking Management System.
- * It demonstrates how a Java application starts execution and prints
- * a welcome message to the console.
+ * Demonstrates booking cancellation and inventory rollback
+ * using Stack (LIFO) for safe state reversal.
  *
  * @author Anshul
- * @version 1.0
+ * @version 10.0
  */
 
-public class UseCase1HotelBookingApp {
+import java.util.*;
 
-    /**
-     * Main method - Entry point of the application
-     * JVM starts execution from here
-     *
-     * @param args Command line arguments
-     */
+// Reservation Class
+class Reservation {
+    private String reservationId;
+    private String roomType;
+    private String roomId;
+
+    public Reservation(String reservationId, String roomType, String roomId) {
+        this.reservationId = reservationId;
+        this.roomType = roomType;
+        this.roomId = roomId;
+    }
+
+    public String getReservationId() {
+        return reservationId;
+    }
+
+    public String getRoomType() {
+        return roomType;
+    }
+
+    public String getRoomId() {
+        return roomId;
+    }
+}
+
+// Inventory Class
+class RoomInventory {
+    private Map<String, Integer> inventory = new HashMap<>();
+
+    public RoomInventory() {
+        inventory.put("Single Room", 1);
+        inventory.put("Double Room", 1);
+        inventory.put("Suite Room", 0);
+    }
+
+    public void increment(String roomType) {
+        inventory.put(roomType, inventory.getOrDefault(roomType, 0) + 1);
+    }
+
+    public void displayInventory() {
+        System.out.println("\n---- Inventory Status ----");
+        for (Map.Entry<String, Integer> entry : inventory.entrySet()) {
+            System.out.println(entry.getKey() + " : " + entry.getValue());
+        }
+    }
+}
+
+// Booking History
+class BookingHistory {
+    private Map<String, Reservation> bookings = new HashMap<>();
+
+    public void addReservation(Reservation r) {
+        bookings.put(r.getReservationId(), r);
+    }
+
+    public Reservation getReservation(String id) {
+        return bookings.get(id);
+    }
+
+    public void removeReservation(String id) {
+        bookings.remove(id);
+    }
+}
+
+// Cancellation Service
+class CancellationService {
+
+    private RoomInventory inventory;
+    private BookingHistory history;
+    private Stack<String> rollbackStack; // LIFO
+
+    public CancellationService(RoomInventory inventory, BookingHistory history) {
+        this.inventory = inventory;
+        this.history = history;
+        this.rollbackStack = new Stack<>();
+    }
+
+    public void cancelBooking(String reservationId) {
+
+        System.out.println("\nProcessing cancellation for ID: " + reservationId);
+
+        // Validate reservation
+        Reservation r = history.getReservation(reservationId);
+
+        if (r == null) {
+            System.out.println("Cancellation Failed: Reservation not found.");
+            return;
+        }
+
+        // Push room ID to stack (rollback tracking)
+        rollbackStack.push(r.getRoomId());
+
+        // Restore inventory
+        inventory.increment(r.getRoomType());
+
+        // Remove booking from history
+        history.removeReservation(reservationId);
+
+        System.out.println("Cancellation Successful!");
+        System.out.println("Released Room ID: " + rollbackStack.peek());
+    }
+}
+
+// Main Class
+public class UseCase10BookingCancellation {
+
     public static void main(String[] args) {
 
-        // Printing welcome message
         System.out.println("=====================================");
-        System.out.println("   Welcome to Book My Stay App");
-        System.out.println("   Hotel Booking System v1.0");
+        System.out.println("   Book My Stay App");
+        System.out.println("   Hotel Booking System v10.0");
         System.out.println("=====================================");
 
-        // Inform user application started successfully
-        System.out.println("Application started successfully!");
+        RoomInventory inventory = new RoomInventory();
+        BookingHistory history = new BookingHistory();
 
-        // Program ends here
+        // Simulate confirmed bookings
+        history.addReservation(new Reservation("R101", "Single Room", "SR001"));
+        history.addReservation(new Reservation("R102", "Double Room", "DR001"));
+
+        CancellationService service = new CancellationService(inventory, history);
+
+        // Perform cancellation
+        service.cancelBooking("R101");
+
+        // Invalid cancellation
+        service.cancelBooking("R999");
+
+        // Display updated inventory
+        inventory.displayInventory();
+
+        System.out.println("\nApplication finished successfully!");
     }
 }
